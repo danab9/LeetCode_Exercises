@@ -1,0 +1,158 @@
+-- EXAMPLE: USER DEFIEND FUNCTION
+CREATE FUNCTION count_rr (min_r decimal(4,2), max_r decimal(4,2))
+RETURNS INT
+LANGUAGE plpgsql
+AS 
+$$
+DECLARE
+	movie_count INT;
+BEGIN
+	SELECT COUNT(*)
+	INTO movie_count
+	FROM film
+	WHERE rental_rate BETWEEN min_R AND max_r;
+	RETURN movie_count;
+END;
+$$
+
+SELECT count_rr(3,6);
+
+-------------------------------
+-- CHALLENGE 1 --
+/*
+Create a function.
+parameters: first and last name of customer.
+return: total amount of payments this customer has made. 
+*/ 
+
+CREATE OR REPLACE FUNCTION name_search (f_name TEXT, l_name TEXT)
+RETURNS decimal(6,2)
+LANGUAGE plpgsql
+AS
+$$
+DECLARE
+total_payments decimal(6,2);
+BEGIN
+	SELECT
+		SUM(amount)
+	INTO total_payments
+	FROM payment p
+	NATURAL JOIN customer c ON p.customer_id = c.customer_id
+	WHERE c.first_name = f_name AND c.last_name = l_name;
+	RETURN total_payments;
+END;
+$$
+
+-- test function
+SELECT name_search('AMY', 'LOPEZ');
+
+-- use as another column!
+SELECT
+	first_name,
+	last_name,
+	name_search(first_name, last_name)
+FROM customer;
+
+----------------- 
+-- Transactions
+-- example:
+CREATE TABLE acc_balance (
+    id SERIAL PRIMARY KEY,
+    first_name TEXT NOT NULL,
+	last_name TEXT NOT NULL,
+    amount DEC(9,2) NOT NULL    
+);
+
+INSERT INTO acc_balance
+VALUES 
+(1,'Tim','Brown',2500),
+(2,'Sandra','Miller',1600);
+
+SELECT * FROM acc_balance;
+
+BEGIN;
+UPDATE acc_balance
+SET amount = amount - 100
+WHERE id=1;
+
+UPDATE acc_balance
+SET amount = amount + 100
+WHERE id=2;
+ -- here its updated 
+ -- in another query: not updated until we commit!
+COMMIT;
+
+-----------------
+-- Challenge: transactions --
+/*
+The two employees 
+	Miller McQuarter
+	Christalle McKenny
+have aggreed to swap their position incl. their salary.
+implement this using transactions;
+*/
+
+SELECT * FROM employees;
+
+BEGIN;
+UPDATE employees
+SET poisition_title = 'Head of Sales'
+WHERE employee_id=2;
+
+UPDATE employees
+SET poisition_title = 'Head of BI'
+WHERE employee_id=3;
+
+UPDATE employees
+SET salary = 12587.00
+WHERE employee_id=2;
+
+UPDATE employees
+SET salary = 14614.00
+WHERE employee_id=3;
+
+COMMIT;
+
+-----------------
+-- Challenge: Stored Procedures --
+/*
+Create a stored procedure called emp_swap that accepts two 
+parameters emp1 and emp2 as input and swaps the two employees'
+position and salary.
+
+Test the stored procedure with emp_id 2 and 3.
+*/
+
+CREATE PROCEDURE emp_swap (emp1 INT, emp2 INT)
+	LANGUAGE plpgsql
+AS
+$$
+DECLARE
+	pos1 TEXT;
+	pos2 TEXT;
+	salary1 numeric(8,2);
+	salary2 numeric(8,2);
+BEGIN
+	-- get current values
+	SELECT position_title, salary INTO pos1, salary1
+	FROM employees
+	WHERE emp_id = emp1;
+
+	SELECT position_title, salary INTO pos2, salary2
+	FROM employees
+	WHERE emp_id = emp2;
+
+	-- swap values
+	UPDATE employees
+	SET position_title = pos2,
+		salary = salary2
+	WHERE emp_id = emp1;
+
+	UPDATE employees
+	SET position_title = pos1,
+		salary = salary1
+	WHERE emp_id = emp2;
+END;
+$$
+
+CALL emp_swap (2, 3);
